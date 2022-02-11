@@ -1,30 +1,33 @@
 package com.example.lab_1_2_surabhirupani_c0829588_android;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.PopupMenu;
 import androidx.appcompat.widget.SearchView;
 import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.ImageButton;
-import android.widget.LinearLayout;
+import android.widget.Toast;
 
 import com.example.lab_1_2_surabhirupani_c0829588_android.Adapter.ProductAdapter;
 import com.example.lab_1_2_surabhirupani_c0829588_android.Database.AppDatabase;
 import com.example.lab_1_2_surabhirupani_c0829588_android.Database.DAO;
 import com.example.lab_1_2_surabhirupani_c0829588_android.Model.Product;
+import com.example.lab_1_2_surabhirupani_c0829588_android.helper.SwipeHelper;
+import com.example.lab_1_2_surabhirupani_c0829588_android.helper.SwipeUnderlayButtonClickListener;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -36,6 +39,7 @@ public class MainActivity extends AppCompatActivity {
     private List<Product> productList, searchedLists;
     private ProductAdapter productAdapter;
     Toolbar toolbar;
+    private SwipeHelper swipeHelper;
 
     private SearchView.OnQueryTextListener searchListener = new SearchView.OnQueryTextListener() {
         @Override
@@ -91,6 +95,60 @@ public class MainActivity extends AppCompatActivity {
         recyclerViewTodoList.setAdapter(productAdapter);
 
         getProductItems();
+
+        // using SwipeHelper class
+        swipeHelper = new SwipeHelper(this, 300, recyclerViewTodoList) {
+            @Override
+            protected void instantiateSwipeButton(RecyclerView.ViewHolder viewHolder, List<SwipeUnderlayButton> buffer) {
+                buffer.add(new SwipeUnderlayButton(MainActivity.this,
+                        "Delete",
+                        R.drawable.ic_delete_white,
+                        30,
+                        50,
+                        Color.parseColor("#ff3c30"),
+                        SwipeDirection.LEFT,
+                        new SwipeUnderlayButtonClickListener() {
+                            @Override
+                            public void onClick(int position) {
+                                final Product product = productList.get(position);
+                                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                                builder.setTitle("Delete Product");
+                                builder.setMessage("Are you sure you want to delete product?");
+                                builder.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface di, int i) {
+                                        di.dismiss();
+                                        dao.deleteProduct(product.getProductId());
+                                        getProductItems();
+                                        Toast.makeText(getApplicationContext(), "Product deleted!", Toast.LENGTH_LONG).show();
+                                    }
+                                });
+                                builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        dialog.dismiss();
+                                    }
+                                });
+                                builder.show();
+                            }
+                        }));
+                buffer.add(new SwipeUnderlayButton(MainActivity.this,
+                        "Update",
+                        R.drawable.ic_update_white,
+                        30,
+                        50,
+                        Color.parseColor("#ff9502"),
+                        SwipeDirection.LEFT,
+                        new SwipeUnderlayButtonClickListener() {
+                            @Override
+                            public void onClick(int position) {
+                                Intent intent = new Intent(MainActivity.this, AddProductActivity.class);
+                                intent.putExtra("product", productList.get(position));
+                                startActivity(intent);
+                            }
+                        }));
+            }
+        };
     }
 
     private void insertProducts() {
@@ -187,6 +245,33 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_searchitem, menu);
+
+        MenuItem searchItem = menu.findItem(R.id.searchBar);
+        SearchView searchView = (SearchView) searchItem.getActionView();
+        searchView.setQueryHint("Search Task");
+        searchView.setOnQueryTextListener(searchListener);
+        searchView.setOnCloseListener(new SearchView.OnCloseListener() {
+            @Override
+            public boolean onClose() {
+                searchedLists.clear();
+                searchedLists.addAll(productList);
+                productAdapter.notifyDataSetChanged();
+                return false;
+            }
+        });
+        EditText searchEditText = searchView.findViewById(androidx.appcompat.R.id.search_src_text);
+        searchEditText.setHintTextColor(getResources().getColor(R.color.white));
+        searchEditText.setTextColor(getResources().getColor(R.color.white));
+        if (lastSearch != null && !lastSearch.isEmpty()) {
+            searchView.setIconified(false);
+            searchView.setQuery(lastSearch, false);
+        }
+        return true;
+    }
+
     private void getProductItems() {
         productList.clear();
         searchedLists.clear();
@@ -199,5 +284,11 @@ public class MainActivity extends AppCompatActivity {
             searchedLists.addAll(productList1);
             productAdapter.notifyDataSetChanged();
         }
+    }
+
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        getProductItems();
     }
 }
